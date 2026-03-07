@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Solar Timezone Viewer</title>
+		<link
+			rel="stylesheet"
+			href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+		/>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+				background-color: #f5f5f5;
+				height: 100vh;
+				overflow: hidden;
+			}
+
+			#map {
+				height: 100%;
+				width: 100%;
+			}
+
+			.controls {
+				position: absolute;
+				top: 10px;
+				right: 10px;
+				background: white;
+				padding: 15px;
+				border-radius: 8px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+				z-index: 1000;
+				font-size: 14px;
+				max-width: 300px;
+			}
+
+			.control-group {
+				margin-bottom: 15px;
+			}
+
+			.control-group label {
+				display: block;
+				font-weight: 600;
+				margin-bottom: 8px;
+				color: #333;
+			}
+
+			.control-group select,
+			.control-group input[type="radio"] {
+				margin-right: 8px;
+			}
+
+			.radio-group {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+
+			.radio-group label {
+				display: flex;
+				align-items: center;
+				font-weight: normal;
+				margin: 0;
+				cursor: pointer;
+			}
+
+			.radio-group input[type="radio"] {
+				margin-right: 6px;
+			}
+
+			.info-panel {
+				position: absolute;
+				bottom: 10px;
+				left: 10px;
+				background: white;
+				padding: 15px;
+				border-radius: 8px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+				z-index: 1000;
+				width: 500px;
+				height: 82vh;
+				font-size: 13px;
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.info-panel h3 {
+				margin: 0 0 10px 0;
+				color: #333;
+				font-size: 15px;
+				border-bottom: 2px solid #4caf50;
+				padding-bottom: 5px;
+			}
+
+			.info-item {
+				margin: 8px 0;
+				display: flex;
+				justify-content: space-between;
+				flex-wrap: wrap;
+			}
+
+			.info-label {
+				font-weight: 600;
+				color: #555;
+				min-width: 120px;
+			}
+
+			.info-value {
+				color: #333;
+				word-break: break-word;
+			}
+
+			.separator {
+				border-top: 1px solid #e0e0e0;
+				margin: 10px 0;
+			}
+
+			.equation-of-time {
+				background-color: #f9f9f9;
+				padding: 10px;
+				border-left: 3px solid #2196f3;
+				margin: 8px 0;
+			}
+
+			.hidden {
+				display: none;
+			}
+
+			.tooltip {
+				padding: 10px;
+				background: rgba(0, 0, 0, 0.8);
+				color: white;
+				border-radius: 4px;
+				font-size: 12px;
+				pointer-events: none;
+			}
+
+			.country-codes {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 4px;
+				margin-top: 4px;
+			}
+
+			.country-code {
+				background-color: #e3f2fd;
+				color: #1976d2;
+				padding: 2px 6px;
+				border-radius: 3px;
+				font-size: 11px;
+				font-weight: 600;
+			}
+
+			#chartContainer {
+				position: relative;
+				height: 180px;
+				margin-bottom: 10px;
+				flex-shrink: 0;
+			}
+
+			#eotChart {
+				display: block;
+				width: 100% !important;
+				height: 100% !important;
+			}
+
+			.info-content-section {
+				flex: 1;
+				overflow-y: auto;
+				padding-right: 5px;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.info-properties {
+				margin-bottom: 10px;
+			}
+
+			.point-analysis-section {
+				margin-top: auto;
+				padding-top: 10px;
+				border-top: 1px solid #e0e0e0;
+				flex-shrink: 0;
+			}
+
+			.info-content-section::-webkit-scrollbar {
+				width: 6px;
+			}
+
+			.info-content-section::-webkit-scrollbar-track {
+				background: #f1f1f1;
+				border-radius: 3px;
+			}
+
+			.info-content-section::-webkit-scrollbar-thumb {
+				background: #888;
+				border-radius: 3px;
+			}
+
+			.info-content-section::-webkit-scrollbar-thumb:hover {
+				background: #555;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="map"></div>
+
+		<div class="controls">
+			<div class="control-group">
+				<label>Offset to Show:</label>
+				<div class="radio-group">
+					<label>
+						<input
+							type="radio"
+							name="baseLayer"
+							value="osm-tiles"
+							checked
+						/>
+						Standard
+					</label>
+					<label>
+						<input
+							type="radio"
+							name="baseLayer"
+							value="osm-tiles-dst"
+						/>
+						DST
+					</label>
+				</div>
+			</div>
+
+			<div class="control-group">
+				<label>Processing Method:</label>
+				<div class="radio-group">
+					<label>
+						<input
+							type="radio"
+							name="timezone"
+							value="standard"
+							checked
+						/>
+						Numerical
+					</label>
+					<label>
+						<input
+							type="radio"
+							name="timezone"
+							value="montecarlo"
+						/>
+						Monte Carlo
+					</label>
+				</div>
+			</div>
+		</div>
+
+		<div class="info-panel hidden" id="infoPanel">
+			<h3 id="infoTitle">Timezone Information</h3>
+			<div id="chartContainer">
+				<canvas id="eotChart"></canvas>
+			</div>
+			<div class="info-content-section">
+				<div class="info-properties" id="infoContent"></div>
+				<div
+					class="point-analysis-section"
+					id="pointAnalysisSection"
+				></div>
+			</div>
+		</div>
+
+		<script>
+			// Initialize map centered on equator
+			const map = L.map("map").setView([20, 0], 3);
+
+			// Layer groups
+			let osmLayer = L.tileLayer(
+				"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+				{
+					attribution: "© OpenStreetMap contributors",
+					maxZoom: 6,
+				},
+			);
+
+			let tilesLayer = L.tileLayer("tiles/{z}/{x}/{y}.png", {
+				maxZoom: 6,
+				minZoom: 0,
+				attribution: "Solar Standard",
+				opacity: 0.65,
+			});
+
+			let tilesDstLayer = L.tileLayer("tiles-dst/{z}/{x}/{y}.png", {
+				maxZoom: 6,
+				minZoom: 0,
+				attribution: "Solar DST",
+				opacity: 0.65,
+			});
+
+			// GeoJSON layers
+			let geojsonStandard = null;
+			let geojsonMontecarlo = null;
+			let currentGeojsonLayer = null;
+			let chartInstance = null;
+
+			// Styling function
+			function getStyle(feature) {
+				return {
+					fillColor: "rgba(76, 175, 80, 0.3)",
+					color: "#4CAF50",
+					weight: 1,
+					opacity: 0.8,
+					fillOpacity: 0.3,
+				};
+			}
+
+			function getHighlightStyle() {
+				return {
+					fillColor: "rgba(255, 193, 7, 0.5)",
+					color: "#FFC107",
+					weight: 2,
+					opacity: 1,
+					fillOpacity: 0.5,
+				};
+			}
+
+			// Load GeoJSON data
+			async function loadGeoJSON() {
+				try {
+					const [standardRes, montecarloRes] = await Promise.all([
+						fetch("processed-geojson/timezones_processed.geojson"),
+						fetch(
+							"processed-geojson/timezones_processed_montecarlo.geojson",
+						),
+					]);
+
+					const standardData = await standardRes.json();
+					const montecarloData = await montecarloRes.json();
+
+					// Create standard layer
+					geojsonStandard = L.geoJSON(standardData, {
+						style: getStyle,
+						onEachFeature: onEachFeature,
+					});
+
+					// Create montecarlo layer
+					geojsonMontecarlo = L.geoJSON(montecarloData, {
+						style: getStyle,
+						onEachFeature: onEachFeature,
+					});
+
+					// Initially add standard layer
+					currentGeojsonLayer = geojsonStandard;
+					currentGeojsonLayer.addTo(map);
+				} catch (error) {
+					console.error("Error loading GeoJSON:", error);
+					alert("Error loading timezone data: " + error.message);
+				}
+			}
+
+			function onEachFeature(feature, layer) {
+				// Click to show equation of time
+				layer.on("click", function (e) {
+					const latlng = e.latlng;
+					// showInfoPanel(feature, 'hover');
+					showInfoPanel(feature, "click", latlng);
+				});
+			}
+
+			function generatePointAnalysisHTML(latlng = null, props = null) {
+				// Generate Point Analysis section HTML
+				// Returns either placeholder or actual point click data
+
+				if (!latlng || !props) {
+					// Placeholder data
+					return `
+			                 <div class="infoPanel">
+			                     <h3>Point Analysis</h3>
+			                 </div>
+			                 <div class="info-item">
+			                     <span class="info-label">Latitude:</span>
+			                     <span class="info-value" style="color: #999;">--</span>
+			                 </div>
+			                 <div class="info-item">
+			                     <span class="info-label">Longitude:</span>
+			                     <span class="info-value" style="color: #999;">--</span>
+			                 </div>
+			                 <div class="info-item">
+			                     <span class="info-label">Equation of Time:</span>
+			                     <span class="info-value" style="color: #999;">--</span>
+			                 </div>
+			                 <div class="info-item">
+			                     <span class="info-label">Solar vs Local Noon Diff:</span>
+			                     <span class="info-value" style="color: #999;">--</span>
+			                 </div>
+			             `;
+				}
+
+				// Actual point analysis data
+				const diffSolarMinutes = calculateSolarNoonDifference(
+					latlng,
+					props,
+				);
+				const eot = calculateEquationOfTime(latlng, diffSolarMinutes);
+
+				return `
+			             <div class="infoPanel">
+			                 <h3>Point Analysis</h3>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Latitude:</span>
+			                 <span class="info-value">${latlng.lat.toFixed(4)}°</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Longitude:</span>
+			                 <span class="info-value">${latlng.lng.toFixed(4)}°</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Today's Solar Noon Diff:</span>
+			                 <span class="info-value">${eot.toFixed(2)} min (${calculateSolarNoonTime(eot)})</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Mean Solar - Local Noon Diff:</span>
+			                 <span class="info-value">${diffSolarMinutes.toFixed(2)} min (${calculateSolarNoonTime(diffSolarMinutes)})</span>
+			             </div>
+			         `;
+			}
+
+			function showInfoPanel(feature, mode, latlng = null) {
+				// LOGIC FLOW:
+				// 1. Get feature properties from hovered/clicked timezone
+				// 2. Create and display the chart for this timezone
+				// 3. Generate timezone properties HTML
+				// 4. Generate point analysis HTML (with actual data if clicked, placeholder if hovered)
+				// 5. Update info panel with all content
+
+				const props = feature.properties;
+				const panel = document.getElementById("infoPanel");
+				const content = document.getElementById("infoContent");
+				const pointAnalysis = document.getElementById(
+					"pointAnalysisSection",
+				);
+
+				// Create the chart for this timezone
+				createEquationOfTimeChart(latlng, props);
+
+				// Generate timezone properties
+				let html = `
+			             <div class="info-item">
+			                 <span class="info-label">Timezone ID:</span>
+			                 <span class="info-value">${props.tzid}</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Country Codes:</span>
+			             </div>
+			             <div class="country-codes">
+			                 ${props.countryCodes.map((code) => `<span class="country-code">${code}</span>`).join("")}
+			             </div>
+			             <div class="separator"></div>
+			             <div class="info-item">
+			                 <span class="info-label">UTC Offset:</span>
+			                 <span class="info-value">${props.utcOffsetStandard}</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">UTC Offset DST:</span>
+			                 <span class="info-value">${props.utcOffsetDst}</span>
+			             </div>
+			             <div class="separator"></div>
+			             <div class="info-item">
+			                 <span class="info-label">Reference Meridian:</span>
+			                 <span class="info-value">${props.referenceMeridianStd.toFixed(2)}°</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Reference Meridian DST:</span>
+			                 <span class="info-value">${props.referenceMeridianDst.toFixed(2)}°</span>
+			             </div>
+			             <div class="separator"></div>
+			             <div class="info-item">
+			                 <span class="info-label">Mean Offset w/All Year Std.:</span>
+			                 <span class="info-value">${props.avgSolarNoonOffsetMinutesStd.toFixed(2)} min (${calculateSolarNoonTime(props.avgSolarNoonOffsetMinutesStd)})</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Mean Offset w/All Year DST:</span>
+			                 <span class="info-value">${props.avgSolarNoonOffsetMinutesDst.toFixed(2)} min (${calculateSolarNoonTime(props.avgSolarNoonOffsetMinutesDst)})</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Mean Offset Observed:</span>
+			                 <span class="info-value">${props.avgSolarNoonOffsetMinutesWeighted.toFixed(2)} min (${calculateSolarNoonTime(props.avgSolarNoonOffsetMinutesWeighted)})</span>
+			             </div>
+			         `;
+
+				content.innerHTML = html;
+
+				pointAnalysis.innerHTML = generatePointAnalysisHTML(
+					latlng,
+					props,
+				);
+
+				panel.classList.remove("hidden");
+			}
+
+			function showPlaceholderInfo() {
+				// LOGIC FLOW:
+				// 1. Create default chart (standard EOT only)
+				// 2. Generate placeholder timezone properties
+				// 3. Generate placeholder point analysis
+				// 4. Display info panel with all placeholder content
+
+				const panel = document.getElementById("infoPanel");
+				const content = document.getElementById("infoContent");
+				const pointAnalysis = document.getElementById(
+					"pointAnalysisSection",
+				);
+
+				// Create default chart
+				// createEquationOfTimeChart(null, null);
+
+				const html = `
+			             <div class="info-item">
+			                 <span class="info-label">Timezone ID:</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Country Codes:</span>
+			             </div>
+			             <div class="country-codes">
+			                 <span class="country-code" style="color: #999; background-color: #f0f0f0;">--</span>
+			             </div>
+			             <div class="separator"></div>
+			             <div class="info-item">
+			                 <span class="info-label">UTC Offset (Std):</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">UTC Offset (DST):</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			             <div class="separator"></div>
+			             <div class="info-item">
+			                 <span class="info-label">Reference Meridian (Std):</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Reference Meridian (DST):</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			             <div class="separator"></div>
+			             <div class="info-item">
+			                 <span class="info-label">Avg Solar Noon Offset (Std):</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			             <div class="info-item">
+			                 <span class="info-label">Avg Solar Noon Offset (DST):</span>
+			                 <span class="info-value" style="color: #999;">--</span>
+			             </div>
+			         `;
+
+				content.innerHTML = html;
+				pointAnalysis.innerHTML = generatePointAnalysisHTML();
+				panel.classList.remove("hidden");
+			}
+
+			function calculateSolarNoonTime(diffSolarMinutes) {
+				// Return string of solar noon based on solar - local noon diff
+				const mins = 12 * 60 + diffSolarMinutes;
+				return `${Math.floor(mins / 60)}:${Math.floor(mins % 60)
+					.toString()
+					.padStart(2, "0")}`;
+			}
+
+			function getDayOfYear(date) {
+				// Calculate day of year (1-365) from a Date object
+				const start = new Date(date.getFullYear(), 0, 0);
+				const diff = date - start;
+				const oneDay = 1000 * 60 * 60 * 24;
+				return Math.floor(diff / oneDay);
+			}
+
+			function calculateEquationOfTimeForDay(
+				dayOfYear,
+				diffSolarMinutes,
+			) {
+				// Calculate equation of time for a specific day of year (1-365)
+				// Using standard equation of time formula
+				const b = (360 / 365.25) * (dayOfYear - 1);
+				const bRad = (b * Math.PI) / 180;
+				const eot =
+					229.18 *
+					(0.000075 +
+						0.001868 * Math.cos(bRad) -
+						0.032077 * Math.sin(bRad) -
+						0.014615 * Math.cos(2 * bRad) -
+						0.040849 * Math.sin(2 * bRad));
+				return -eot + diffSolarMinutes;
+			}
+
+			function calculateEquationOfTime(latlng, diffSolarMinutes) {
+				// Calculate equation of time for current date
+				const today = new Date();
+				const dayOfYear = getDayOfYear(today);
+				return calculateEquationOfTimeForDay(
+					dayOfYear,
+					diffSolarMinutes,
+				);
+			}
+
+			function getEquationOfTimeData(diffSolarMinutes) {
+				// Generate EOT data for all 365 days with month labels
+				// LOGIC FLOW:
+				// 1. Calculate EOT for each day of year
+				// 2. Create label array with month names at appropriate positions
+				// 3. Return both data and labels for Chart.js
+
+				const eotData = [];
+				const labels = new Array(365).fill("");
+
+				// Month start day indices (for non-leap year)
+				const monthData = [
+					{ index: 0, label: "Jan" },
+					{ index: 31, label: "Feb" },
+					{ index: 59, label: "Mar" },
+					{ index: 90, label: "Apr" },
+					{ index: 120, label: "May" },
+					{ index: 151, label: "Jun" },
+					{ index: 181, label: "Jul" },
+					{ index: 212, label: "Aug" },
+					{ index: 243, label: "Sep" },
+					{ index: 273, label: "Oct" },
+					{ index: 304, label: "Nov" },
+					{ index: 334, label: "Dec" },
+				];
+
+				// Add month labels to label array
+				monthData.forEach(({ index, label }) => {
+					if (index < 365) {
+						labels[index] = label;
+					}
+				});
+
+				// Calculate EOT for each day
+				for (let day = 1; day <= 365; day++) {
+					eotData.push(
+						calculateEquationOfTimeForDay(day, diffSolarMinutes),
+					);
+				}
+
+				return { eotData, labels };
+			}
+
+			function createEquationOfTimeChart(latlng, props) {
+				// LOGIC FLOW:
+				// 1. Get the canvas element for the chart
+				// 2. Fetch EOT data for all 365 days
+				// 3. Create primary dataset (standard timezone)
+				// 4. Create secondary dataset if DST offset differs from standard
+				// 4b. Create dataset that is the true offset accounting for time with and without offset
+				// 5. Destroy old chart instance if it exists
+				// 6. Create new Chart.js instance with datasets
+
+				const chartCanvas = document.getElementById("eotChart");
+				if (!chartCanvas) {
+					console.error("Chart canvas not found");
+					return;
+				}
+
+				const ctx = chartCanvas.getContext("2d");
+				const diffSolarMinutes = calculateSolarNoonDifference(
+					latlng,
+					props,
+				);
+				const { eotData, labels } =
+					getEquationOfTimeData(diffSolarMinutes);
+
+				// Primary dataset: Standard timezone
+				const datasets = [
+					{
+						label: "Solar Noon STD",
+						data: eotData,
+						borderColor: "#4CAF50",
+						backgroundColor: "rgba(76, 175, 80, 0.05)",
+						borderWidth: 2,
+						tension: 0.4,
+						fill: false,
+						pointRadius: 0,
+						pointHoverRadius: 4,
+						pointHoverBackgroundColor: "#4CAF50",
+						order: 0,
+					},
+				];
+
+				// Secondary dataset: Add DST & observed offset line if different
+				if (props && props.utcOffsetDst !== props.utcOffsetStandard) {
+					const dstOffsetMinutes =
+						parseOffsetToMinutes(props.utcOffsetDst) -
+						parseOffsetToMinutes(props.utcOffsetStandard);
+					const dstShiftedData = eotData.map(
+						(value) => value + dstOffsetMinutes,
+					);
+
+					datasets.push({
+						label: "Solar Noon DST",
+						data: dstShiftedData,
+						borderColor: "#F44336",
+						backgroundColor: "rgba(244, 67, 54, 0.05)",
+						borderWidth: 2,
+						tension: 0.4,
+						fill: false,
+						pointRadius: 0,
+						pointHoverRadius: 4,
+						pointHoverBackgroundColor: "#F44336",
+						borderDash: [5, 5],
+						order: 1,
+					});
+
+					const trueShiftedData = eotData.map((value, index) => {
+						if (index >= props.dstStart && index <= props.dstEnd) {
+							return value + dstOffsetMinutes;
+						} else {
+							return value;
+						}
+					});
+
+					datasets.push({
+						label: "Observed Solar Noon",
+						data: trueShiftedData,
+						borderColor: "#FFEB3B",
+						backgroundColor: "rgba(255, 235, 59, 0.05)",
+						borderWidth: 2,
+						tension: 0.4,
+						fill: false,
+						pointRadius: 0,
+						pointHoverRadius: 4,
+						pointHoverBackgroundColor: "#FFEB3B",
+						order: 2,
+					});
+				}
+
+				// Safely destroy previous chart to prevent memory leaks
+				if (chartInstance) {
+					try {
+						chartInstance.destroy();
+					} catch (e) {
+						console.warn("Error destroying previous chart:", e);
+					}
+					chartInstance = null;
+				}
+
+				const drawDatasetOnTop = {
+					id: "drawDatasetOnTop",
+					afterDatasetsDraw(chart, args, options) {
+						const { ctx } = chart;
+
+						chart.data.datasets.forEach((dataset, i) => {
+							if (dataset.label === options.label) {
+								const meta = chart.getDatasetMeta(i);
+
+								ctx.save();
+								meta.dataset.draw(ctx);
+
+								meta.data.forEach((point) => {
+									point.draw(ctx);
+								});
+
+								ctx.restore();
+							}
+						});
+					},
+				};
+
+				Chart.register(drawDatasetOnTop);
+
+				// Create new chart instance
+				chartInstance = new Chart(ctx, {
+					type: "line",
+					data: {
+						labels: labels,
+						datasets: datasets,
+					},
+					options: {
+						responsive: true,
+						maintainAspectRatio: false,
+						interaction: {
+							mode: "index",
+							intersect: false,
+						},
+						plugins: {
+							legend: {
+								display: true,
+								position: "top",
+								labels: {
+									font: { size: 10 },
+									padding: 8,
+									usePointStyle: true,
+									boxPadding: 4,
+								},
+							},
+							filler: {
+								propagate: false,
+							},
+							drawDatasetOnTop: {
+								label: "Observed Solar Noon",
+							},
+						},
+						scales: {
+							y: {
+								reverse: true,
+								beginAtZero: true,
+								ticks: {
+									font: { size: 9 },
+									callback: function (value) {
+										const totalMinutes = 12 * 60 + value;
+										const hours = Math.floor(
+											totalMinutes / 60,
+										);
+										const minutes = Math.floor(
+											totalMinutes % 60,
+										);
+										return `${hours}:${minutes.toString().padStart(2, "0")}`;
+									},
+								},
+								grid: {
+									drawBorder: true,
+									color: "rgba(0, 0, 0, 0.05)",
+								},
+							},
+							x: {
+								ticks: {
+									font: { size: 8 },
+									maxRotation: 0,
+								},
+								grid: {
+									display: false,
+								},
+								afterBuildTicks: function (scale) {
+									scale.ticks = scale.ticks.filter(
+										(tick) => labels[tick.value] !== "",
+									);
+								},
+							},
+						},
+					},
+				});
+
+				chartInstance.data.datasets.forEach((d, i) => {
+					console.log(i, d.label, d.order);
+				});
+			}
+
+			function parseOffsetToMinutes(offset) {
+				// Parse "+05:00" or "-05:30" to minutes
+				const sign = offset[0] === "-" ? -1 : 1;
+				const [hours, minutes] = offset.slice(1).split(":").map(Number);
+				return sign * (hours * 60 + (minutes || 0));
+			}
+
+			function calculateSolarNoonDifference(latlng, props) {
+				// Difference between solar noon and local noon based on longitude
+				// Solar noon advances at 4 minutes per degree of longitude
+				const referenceMeridian = props.referenceMeridianStd;
+
+				// Raw longitude difference
+				let longitudeDiff = latlng.lng - referenceMeridian;
+
+				// Normalize to the shortest distance across the antimeridian (-180, 180]
+				longitudeDiff =
+					((((longitudeDiff + 180) % 360) + 360) % 360) - 180;
+
+				const solarTimeShift = longitudeDiff * 4; // minutes
+
+				// Negative because east longitudes experience solar noon earlier
+				return -solarTimeShift;
+			}
+
+			// Handle base layer changes
+			document
+				.querySelectorAll('input[name="baseLayer"]')
+				.forEach((radio) => {
+					radio.addEventListener("change", function () {
+						map.eachLayer((layer) => {
+							if (
+								layer instanceof L.TileLayer &&
+								layer !== currentGeojsonLayer
+							) {
+								map.removeLayer(layer);
+							}
+						});
+
+						if (this.value === "osm-tiles") {
+							osmLayer.addTo(map);
+							tilesLayer.addTo(map);
+						} else {
+							osmLayer.addTo(map);
+							tilesDstLayer.addTo(map);
+						}
+					});
+				});
+
+			// Handle timezone layer changes
+			document
+				.querySelectorAll('input[name="timezone"]')
+				.forEach((radio) => {
+					radio.addEventListener("change", function () {
+						if (currentGeojsonLayer) {
+							map.removeLayer(currentGeojsonLayer);
+						}
+
+						if (this.value === "standard") {
+							currentGeojsonLayer = geojsonStandard;
+						} else {
+							currentGeojsonLayer = geojsonMontecarlo;
+						}
+
+						currentGeojsonLayer.addTo(map);
+					});
+				});
+
+			// Initialize
+			osmLayer.addTo(map);
+			tilesLayer.addTo(map);
+			loadGeoJSON();
+			showPlaceholderInfo();
+
+			// Close info panel when clicking map (but not on timezone)
+			map.on("click", function (e) {
+				const panel = document.getElementById("infoPanel");
+				// Only close if clicked outside of actual features
+				// This is handled by the layer click events
+			});
+		</script>
+	</body>
+</html>

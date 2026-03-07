@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>3D Globe Raster Tiles</title>
+
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.111/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+<style>
+html, body, #cesiumContainer {
+    width:100%;
+    height:100%;
+    margin:0;
+    padding:0;
+    overflow:hidden;
+}
+
+#controls {
+    position:absolute;
+    top:10px;
+    left:10px;
+    background:white;
+    padding:8px;
+    border-radius:4px;
+    z-index:10;
+}
+</style>
+</head>
+
+<body>
+
+<div id="controls">
+<select id="layerSelect">
+<option value="tiles">Standard</option>
+<option value="tiles-dst">DST</option>
+</select>
+</div>
+
+<div id="cesiumContainer"></div>
+
+<script>
+
+const viewer = new Cesium.Viewer("cesiumContainer", {
+    animation:false,
+    timeline:false,
+    baseLayerPicker:false
+});
+
+let currentLayer;
+
+function createLayer(folder) {
+
+    return new Cesium.UrlTemplateImageryProvider({
+        url: folder + "/{z}/{x}/{y}.png",
+        maximumLevel: 6,
+        tilingScheme: new Cesium.WebMercatorTilingScheme()
+    });
+}
+
+function setLayer(folder){
+
+    if(currentLayer){
+        viewer.imageryLayers.remove(currentLayer);
+    }
+
+    const provider = createLayer(folder);
+
+    currentLayer = viewer.imageryLayers.addImageryProvider(provider);
+}
+
+setLayer("tiles");
+
+document.getElementById("layerSelect").addEventListener("change",(e)=>{
+    setLayer(e.target.value);
+});
+
+</script>
+
+</body>
+</html>
