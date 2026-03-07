@@ -68,7 +68,7 @@ This script downloads:
 Convert the raw timezone data into processed GeoJSON with solar noon offset calculations:
 
 ```bash
-python process_combined.py
+python process_combined.py && python process_combined.py --method monte-carlo
 ```
 
 This creates:
@@ -94,8 +94,7 @@ The first command generates tiles showing standard time offsets, the second gene
 Open `index.html` in your web browser:
 
 ```bash
-open index.html  # On macOS
-# or open the file manually in your browser
+
 ```
 
 ## Usage
@@ -259,10 +258,6 @@ python diff.py processed-geojson/timezones_processed.geojson processed-geojson/t
 ## Project Status
 
 This project is **under active development**. See [plan.md](plan.md) for planned features and improvements.
-
-## License
-
-[Add your license here]
 
 ## References
 

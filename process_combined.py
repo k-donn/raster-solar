@@ -5,6 +5,7 @@ import argparse
 from pathlib import Path
 import datetime
 import pytz
+import os
 
 import numpy as np
 from shapely.geometry import shape, Point, mapping
@@ -17,9 +18,10 @@ from pyproj import Transformer
 # ============================================================================
 
 TIMEZONE_DIR = "raw-geojson"
-METADATA_JSON = "raw-geojson/timezone-info.json"
-OUTPUT_NUMERIC = "processed-geojson/timezones_processed.geojson"
-OUTPUT_MONTECARLO = "processed-geojson/timezones_processed_montecarlo.geojson"
+OUTPUT_DIR = "processed-geojson"
+METADATA_JSON = os.path.join(TIMEZONE_DIR, "timezone-info.json")
+OUTPUT_NUMERIC = os.path.join(OUTPUT_DIR,"timezones_processed.geojson")
+OUTPUT_MONTECARLO = os.path.join(OUTPUT_DIR,"timezones_processed_montecarlo.geojson")
 
 SIMPLIFY_TOLERANCE = 0.01  # degrees
 N_SAMPLES = 2000           # Monte-Carlo samples per zone
@@ -352,6 +354,8 @@ for geojson_path in Path(TIMEZONE_DIR).glob("*.geojson"):
     })
 
     print(f"✓ processed {tzid}")
+
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Write output
 with open(output_path, "w", encoding="utf-8") as f:
