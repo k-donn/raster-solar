@@ -91,10 +91,10 @@ The first command generates tiles showing standard time offsets, the second gene
 
 ### Step 4: View the map
 
-Open `index.html` in your web browser:
+Open [`index.html`](http://127.0.0.1:8080) in your web browser:
 
 ```bash
-
+python -m http.server 8080
 ```
 
 ## Usage
