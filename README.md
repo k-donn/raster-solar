@@ -208,8 +208,8 @@ The processing method affects how solar noon average offsets are calculated acro
 ### Color Scheme
 
 The tiles use a color gradient to represent solar noon offset:
-- **Red tones** - Negative offset (solar noon occurs before local noon)
-- **Blue/Green tones** - Positive offset (solar noon occurs after local noon)
+- **Red tones** - Positive offset (solar noon occurs after local noon)
+- **Blue/Green tones** - Negative offset (solar noon occurs before local noon)
 - **Intensity** - Represents the magnitude of the offset
 
 The offset is measured in degrees of longitude, where:
