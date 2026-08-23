@@ -310,6 +310,11 @@
 			let chartInstance = null;
 
 			// Styling function
+			/**
+			 * Return the default visual style for a timezone feature.
+			 * @param {Object} feature Leaflet GeoJSON feature being styled.
+			 * @returns {Object} Leaflet path style options.
+			 */
 			function getStyle(feature) {
 				return {
 					fillColor: "rgba(76, 175, 80, 0.3)",
@@ -320,6 +325,10 @@
 				};
 			}
 
+			/**
+			 * Return the visual style used while a timezone feature is highlighted.
+			 * @returns {Object} Leaflet path style options for highlighted features.
+			 */
 			function getHighlightStyle() {
 				return {
 					fillColor: "rgba(255, 193, 7, 0.5)",
@@ -331,6 +340,10 @@
 			}
 
 			// Load GeoJSON data
+			/**
+			 * Load both processed timezone datasets and add the standard dataset to the map.
+			 * @returns {Promise<void>} Resolves after the layers are initialized.
+			 */
 			async function loadGeoJSON() {
 				try {
 					const [standardRes, montecarloRes] = await Promise.all([
@@ -364,6 +377,12 @@
 				}
 			}
 
+			/**
+			 * Attach click behavior to a timezone feature layer.
+			 * @param {Object} feature GeoJSON feature containing timezone properties.
+			 * @param {Object} layer Leaflet layer representing the feature.
+			 * @returns {void}
+			 */
 			function onEachFeature(feature, layer) {
 				// Click to show equation of time
 				layer.on("click", function (e) {
@@ -373,9 +392,15 @@
 				});
 			}
 
+			/**
+			 * Render point-analysis HTML for a clicked map position, or placeholders when absent.
+			 * @param {{lat: number, lng: number}|null} latlng Clicked map coordinates.
+			 * @param {Object|null} props Properties of the containing timezone feature.
+			 * @returns {string} HTML for the point-analysis section.
+			 */
 			function generatePointAnalysisHTML(latlng = null, props = null) {
-				// Generate Point Analysis section HTML
-				// Returns either placeholder or actual point click data
+				// Build the point-level report, combining the mean geometric offset
+				// with today's equation-of-time and DST-adjusted offset.
 
 				if (!latlng || !props) {
 					// Placeholder data
@@ -403,11 +428,19 @@
 				}
 
 				// Actual point analysis data
-				const diffSolarMinutes = calculateSolarNoonDifference(
+				const meanDiffSolarMinutes = calculateSolarNoonDifference(
 					latlng,
 					props,
 				);
-				const eot = calculateEquationOfTime(latlng, diffSolarMinutes);
+				const todayDiffSolarMinutes = calculateSolarNoonDifference(
+					latlng,
+					props,
+					new Date(),
+				);
+				const eot = calculateEquationOfTime(
+					latlng,
+					todayDiffSolarMinutes,
+				);
 
 				return `
 			             <div class="infoPanel">
@@ -427,11 +460,18 @@
 			             </div>
 			             <div class="info-item">
 			                 <span class="info-label">Mean Solar - Local Noon Diff:</span>
-			                 <span class="info-value">${diffSolarMinutes.toFixed(2)} min (${calculateSolarNoonTime(diffSolarMinutes)})</span>
+			                 <span class="info-value">${meanDiffSolarMinutes.toFixed(2)} min (${calculateSolarNoonTime(meanDiffSolarMinutes)})</span>
 			             </div>
 			         `;
 			}
 
+			/**
+			 * Populate and display the information panel for a timezone feature.
+			 * @param {Object} feature GeoJSON feature selected on the map.
+			 * @param {string} mode Selection mode retained for panel behavior compatibility.
+			 * @param {{lat: number, lng: number}|null} latlng Selected map coordinates.
+			 * @returns {void}
+			 */
 			function showInfoPanel(feature, mode, latlng = null) {
 				// LOGIC FLOW:
 				// 1. Get feature properties from hovered/clicked timezone
@@ -505,6 +545,10 @@
 				panel.classList.remove("hidden");
 			}
 
+			/**
+			 * Display the information panel with empty values before a feature is selected.
+			 * @returns {void}
+			 */
 			function showPlaceholderInfo() {
 				// LOGIC FLOW:
 				// 1. Create default chart (standard EOT only)
@@ -566,28 +610,43 @@
 				panel.classList.remove("hidden");
 			}
 
+			/**
+			 * Convert a solar-noon offset into a clock time relative to local noon.
+			 * @param {number} diffSolarMinutes Solar noon offset from 12:00 local time.
+			 * @returns {string} Formatted hour and minute for solar noon.
+			 */
 			function calculateSolarNoonTime(diffSolarMinutes) {
-				// Return string of solar noon based on solar - local noon diff
+				// Convert a solar-noon offset in minutes into the displayed local-noon time.
 				const mins = 12 * 60 + diffSolarMinutes;
 				return `${Math.floor(mins / 60)}:${Math.floor(mins % 60)
 					.toString()
 					.padStart(2, "0")}`;
 			}
 
+			/**
+			 * Convert a Date into a one-based calendar day number.
+			 * @param {Date} date Date whose calendar day should be calculated.
+			 * @returns {number} Day of year from 1 through 365 or 366.
+			 */
 			function getDayOfYear(date) {
-				// Calculate day of year (1-365) from a Date object
-				const start = new Date(date.getFullYear(), 0, 0);
-				const diff = date - start;
-				const oneDay = 1000 * 60 * 60 * 24;
-				return Math.floor(diff / oneDay);
+				// Map a calendar date to its day number for seasonal DST and EOT calculations.
+				const year = date.getFullYear();
+				const start = Date.UTC(year, 0, 0);
+				const current = Date.UTC(year, date.getMonth(), date.getDate());
+				return Math.floor((current - start) / (1000 * 60 * 60 * 24));
 			}
 
+			/**
+			 * Calculate equation of time plus a fixed geographic solar-noon offset.
+			 * @param {number} dayOfYear Calendar day number used by the approximation.
+			 * @param {number} diffSolarMinutes Longitude-based solar/local noon difference.
+			 * @returns {number} Combined solar-noon difference in minutes.
+			 */
 			function calculateEquationOfTimeForDay(
 				dayOfYear,
 				diffSolarMinutes,
 			) {
-				// Calculate equation of time for a specific day of year (1-365)
-				// Using standard equation of time formula
+				// Combine the sun's annual equation-of-time correction with a longitude offset.
 				const b = (360 / 365.25) * (dayOfYear - 1);
 				const bRad = (b * Math.PI) / 180;
 				const eot =
@@ -600,8 +659,14 @@
 				return -eot + diffSolarMinutes;
 			}
 
+			/**
+			 * Calculate the current day's equation-of-time-adjusted solar-noon difference.
+			 * @param {{lat: number, lng: number}} latlng Map coordinates; retained for API consistency.
+			 * @param {number} diffSolarMinutes Geographic solar/local noon difference.
+			 * @returns {number} Today's adjusted solar-noon difference in minutes.
+			 */
 			function calculateEquationOfTime(latlng, diffSolarMinutes) {
-				// Calculate equation of time for current date
+				// Apply the equation-of-time correction for today's calendar day.
 				const today = new Date();
 				const dayOfYear = getDayOfYear(today);
 				return calculateEquationOfTimeForDay(
@@ -610,8 +675,13 @@
 				);
 			}
 
+			/**
+			 * Generate the annual equation-of-time curve and month labels for the chart.
+			 * @param {number} diffSolarMinutes Fixed standard-time geographic offset.
+			 * @returns {{eotData: number[], labels: string[]}} Chart values and x-axis labels.
+			 */
 			function getEquationOfTimeData(diffSolarMinutes) {
-				// Generate EOT data for all 365 days with month labels
+				// Generate the standard-time annual curve used by the chart.
 				// LOGIC FLOW:
 				// 1. Calculate EOT for each day of year
 				// 2. Create label array with month names at appropriate positions
@@ -653,7 +723,14 @@
 				return { eotData, labels };
 			}
 
+			/**
+			 * Build and display the standard, DST, and observed solar-noon chart.
+			 * @param {{lat: number, lng: number}|null} latlng Selected map coordinates.
+			 * @param {Object|null} props Timezone properties containing offsets and DST dates.
+			 * @returns {void}
+			 */
 			function createEquationOfTimeChart(latlng, props) {
+				// Plot standard, all-year DST, and observed seasonal solar-noon offsets.
 				// LOGIC FLOW:
 				// 1. Get the canvas element for the chart
 				// 2. Fetch EOT data for all 365 days
@@ -852,17 +929,56 @@
 				});
 			}
 
+			/**
+			 * Parse a signed UTC offset string into minutes.
+			 * @param {string} offset Offset such as "+05:00" or "-05:30".
+			 * @returns {number} Signed offset in minutes.
+			 */
 			function parseOffsetToMinutes(offset) {
-				// Parse "+05:00" or "-05:30" to minutes
+				// Convert a UTC offset string into signed minutes for DST shifting.
 				const sign = offset[0] === "+" ? 1 : -1;
 				const [hours, minutes] = offset.slice(1).split(":").map(Number);
 				return sign * (hours * 60 + (minutes || 0));
 			}
 
-			function calculateSolarNoonDifference(latlng, props) {
-				// Difference between solar noon and local noon based on longitude
-				// Solar noon advances at 4 minutes per degree of longitude
-				const referenceMeridian = props.referenceMeridianStd;
+			/**
+			 * Determine whether a timezone's stored DST season includes a date.
+			 * @param {Object} props Timezone properties with DST meridians and day bounds.
+			 * @param {Date|null} date Date to test; null means DST is not selected.
+			 * @returns {boolean} True when the date uses the DST reference meridian.
+			 */
+			function isDstActiveOnDate(props, date) {
+				// Decide whether the timezone's stored DST season includes this date.
+				if (
+					!date ||
+					props.referenceMeridianDst === props.referenceMeridianStd ||
+					!Number.isInteger(props.dstStart) ||
+					!Number.isInteger(props.dstEnd) ||
+					props.dstStart < 1 ||
+					props.dstEnd < 1
+				) {
+					return false;
+				}
+
+				const dayOfYear = getDayOfYear(date);
+				return props.dstStart <= props.dstEnd
+					? dayOfYear >= props.dstStart && dayOfYear <= props.dstEnd
+					: dayOfYear >= props.dstStart || dayOfYear <= props.dstEnd;
+			}
+
+			/**
+			 * Calculate the longitude-based solar/local noon difference for a timezone.
+			 * @param {{lat: number, lng: number}} latlng Map coordinates.
+			 * @param {Object} props Timezone properties containing reference meridians.
+			 * @param {Date|null} date Optional date that enables the DST meridian when active.
+			 * @returns {number} Solar-noon difference from local noon in minutes.
+			 */
+			function calculateSolarNoonDifference(latlng, props, date = null) {
+				// Calculate the longitude-based solar/local noon difference.
+				// A date selects the DST meridian; no date keeps the standard-time mean.
+				const referenceMeridian = isDstActiveOnDate(props, date)
+					? props.referenceMeridianDst
+					: props.referenceMeridianStd;
 
 				// Raw longitude difference
 				let longitudeDiff = latlng.lng - referenceMeridian;
