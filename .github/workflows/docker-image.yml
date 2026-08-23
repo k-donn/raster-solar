@@ -8,7 +8,7 @@ on:
       - v*
 
 env:
-  IMAGE_NAME: ramsey-viewer
+  IMAGE_NAME: raster-solar
 
 jobs:
   # This pushes the image to GitHub Packages.
