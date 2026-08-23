@@ -97,6 +97,17 @@ Open [`index.html`](http://127.0.0.1:8080) in your web browser:
 python -m http.server 8080
 ```
 
+### Run with Docker
+
+Generate the tile directories first, then build and run the Caddy image:
+
+```bash
+docker build -t raster-solar .
+docker run --rm -p 8080:80 raster-solar
+```
+
+Open http://127.0.0.1:8080 in your browser. The image serves both the standard and DST tile sets with Caddy.
+
 ## Usage
 
 ### Basic Tile Generation

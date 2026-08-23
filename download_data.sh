@@ -1,14 +1,16 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-mkdir raw-geojson
-mkdir zips
+set -euo pipefail
 
-wget https://www.geoapify.com/data-share/timezones/timezone-info.json -P raw-geojson
-wget https://www.geoapify.com/data-share/timezones/timezone-geojson.zip
+mkdir -p raw-geojson
+archive="$(mktemp)"
+trap 'rm -f "$archive"' EXIT
 
-# thanks ai
-sed -i '' 's/−/-/g' raw-geojson/timezone-info.json
+wget -O raw-geojson/timezone-info.json \
+	https://www.geoapify.com/data-share/timezones/timezone-info.json
+wget -O "$archive" \
+	https://www.geoapify.com/data-share/timezones/timezone-geojson.zip
 
-unzip -j timezone-geojson.zip 'timezone-geojson/*.geojson' -d raw-geojson
+sed -i 's/−/-/g' raw-geojson/timezone-info.json
 
-mv timezone-geojson.zip zips/
+unzip -j "$archive" 'timezone-geojson/*.geojson' -d raw-geojson
