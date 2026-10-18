@@ -1,6 +1,9 @@
 name: Push to ghcr.io
 
 on:
+  schedule:
+    # Runs automatically every Sunday at midnight to grab Caddy/plugin updates
+    - cron: '0 1 * * 1'
   push:
     branches:
       - main
