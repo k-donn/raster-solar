@@ -194,7 +194,7 @@ def compute_time_weighted_offset(tzid, avg_std_minutes, avg_dst_minutes, year=No
     - year: calendar year to evaluate (defaults to current year)
     - resolution_minutes: sampling resolution in minutes (default 60)
 
-    Returns: (weighted_minutes, fraction_dst)
+    Returns: (weighted_minutes, fraction_dst, dst_start_day, dst_end_day)
     """
     if year is None:
         year = datetime.datetime.now().year
@@ -204,22 +204,43 @@ def compute_time_weighted_offset(tzid, avg_std_minutes, avg_dst_minutes, year=No
     except Exception:
         # Unknown timezone — fall back to no DST
         print("Unknown timezone")
-        return (avg_std_minutes, 0.0)
-    
-    start = None
-    end = None
+        return avg_std_minutes, 0.0, 0, 0
 
-    for point in tz._utc_transition_times:
-        if point.year == year:
-            if start is None:
-                start = point
-            elif end is None:
-                end = point
+    if resolution_minutes <= 0:
+        raise ValueError("resolution_minutes must be positive")
 
-    fraction_dst = (end - start) / datetime.timedelta(days=360)
+    utc = pytz.UTC
+    year_start = utc.localize(datetime.datetime(year, 1, 1))
+    year_end = utc.localize(datetime.datetime(year + 1, 1, 1))
+    step = datetime.timedelta(minutes=resolution_minutes)
+    total_dst = datetime.timedelta()
+    dst_start_day = 0
+    dst_end_day = 0
+    previous_is_dst = None
+    interval_start = year_start
 
+    while interval_start < year_end:
+        interval_end = min(interval_start + step, year_end)
+        midpoint = interval_start + (interval_end - interval_start) / 2
+        local_time = midpoint.astimezone(tz)
+        is_dst = bool(local_time.dst())
+
+        if is_dst:
+            total_dst += interval_end - interval_start
+
+        if previous_is_dst is not None and is_dst != previous_is_dst:
+            transition_day = interval_start.timetuple().tm_yday
+            if is_dst and not dst_start_day:
+                dst_start_day = transition_day
+            elif not is_dst and not dst_end_day:
+                dst_end_day = transition_day
+
+        previous_is_dst = is_dst
+        interval_start = interval_end
+
+    fraction_dst = total_dst / (year_end - year_start)
     weighted = (1.0 - fraction_dst) * avg_std_minutes + fraction_dst * avg_dst_minutes
-    return weighted, fraction_dst, start.timetuple().tm_yday, end.timetuple().tm_yday
+    return weighted, fraction_dst, dst_start_day, dst_end_day
 
 
 # ============================================================================
