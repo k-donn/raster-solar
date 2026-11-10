@@ -101,6 +101,33 @@
 				padding-bottom: 5px;
 			}
 
+			.noon-legend {
+				margin-bottom: 10px;
+				font-size: 11px;
+				color: #555;
+			}
+
+			.noon-gradient {
+				height: 12px;
+				border: 1px solid #d5d5d5;
+				background: linear-gradient(to right, #ff0000, #ffffff 50%, #00ff00);
+			}
+
+			.noon-gradient-labels {
+				display: flex;
+				justify-content: space-between;
+				gap: 8px;
+				margin-top: 4px;
+			}
+
+			.noon-gradient-labels span {
+				max-width: 40%;
+			}
+
+			.noon-gradient-labels span:last-child {
+				text-align: right;
+			}
+
 			.info-item {
 				margin: 8px 0;
 				display: flex;
@@ -264,6 +291,13 @@
 
 		<div class="info-panel hidden" id="infoPanel">
 			<h3 id="infoTitle">Timezone Information</h3>
+			<div class="noon-legend" role="img" aria-label="Map colors show solar noon timing: red means after civil noon, white means aligned, and green means before civil noon.">
+				<div class="noon-gradient"></div>
+				<div class="noon-gradient-labels">
+					<span>After civil noon</span>
+					<span>Before civil noon</span>
+				</div>
+			</div>
 			<div id="chartContainer">
 				<canvas id="eotChart"></canvas>
 			</div>
